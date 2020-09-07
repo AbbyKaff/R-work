@@ -1,0 +1,143 @@
+---
+title: "Homework 7"
+author: "Abby Kaff"
+date: "11/25/2019"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+2.	Write R codes to re-produce Figure 5.4.  Note your 10-fold CV figure will be slightly different from that in the book because of different seeds.
+```{r}
+#ISLR Section 5.3 pg.192-193
+#install.packages("ISLR")
+library(ISLR)
+
+glm.fit=glm(mpg~horsepower, data=Auto)
+coef(glm.fit)
+```
+
+```{r}
+lm.fit= lm(mpg~horsepower, data=Auto)
+coef(lm.fit)
+```
+
+
+```{r}
+#LOOCV
+library(boot)
+cv.err=cv.glm(Auto, glm.fit)
+cv.err$delta
+cv.error=rep(0,5)
+for (i in 1:5){
+  glm.fit = glm(mpg~poly(horsepower,i), data=Auto)
+  cv.error[i] = cv.glm(Auto,glm.fit)$delta[1]
+}
+cv.error
+```
+
+```{r}
+#k-fold CV
+set.seed(23)
+cv.error.10 = rep(0,10)
+for (i in 1:10){
+  glm.fit=glm(mpg~poly(horsepower,i), data=Auto)
+  cv.error.10[i] = cv.glm(Auto,glm.fit,K=10)$delta[1]
+}
+cv.error.10
+```
+
+
+```{r}
+plot(cv.error.10, method="xy")
+```
+
+```{r}
+plot(cv.error, method="xy")
+```
+
+
+3.	Do Exercise 8, Section 5.4, ISL.
+a)
+```{r}
+set.seed(1)
+y=rnorm(100)
+x=rnorm(100)
+y=x-2*x^2+rnorm(100)
+```
+In this dataset the n=100 and the p=3
+the equation used to generate the model is 
+$Y = B_0 +B_1 * (X) + B_2 * (X)^2 + error $
+
+
+b)
+```{r}
+library(ggplot2)
+simulateddata<-data.frame(x,y)
+ggplot(simulateddata, aes(x=x, y=y)) + 
+  geom_point(shape=8)+
+  geom_smooth()
+```
+We can see from this graph that there is a quadratic relationship between the variables x and y.
+
+
+c)
+```{r}
+fit.glm1<-glm(y~x)
+cv.glm(simulateddata, fit.glm1)$delta[1]
+```
+
+```{r}
+fit.glm2<-glm(y~poly(x,2))
+cv.glm(simulateddata, fit.glm2)$delta[1]
+```
+
+
+```{r}
+fit.glm3<-glm(y~poly(x,3))
+cv.glm(simulateddata, fit.glm3)$delta[1]
+```
+
+```{r}
+fit.glm4<-glm(y~poly(x,4))
+cv.glm(simulateddata, fit.glm4)$delta[1]
+```
+
+The relationship we saw above in the scatterplot is better explaned through these four models. The CV error is least for fit.glm2 being 1.086596.
+
+d)
+```{r}
+set.seed(8)
+fit.glm11<-glm(y~x)
+cv.glm(simulateddata, fit.glm11)$delta[1]
+```
+
+```{r}
+fit.glm22<-glm(y~poly(x,2))
+cv.glm(simulateddata, fit.glm22)$delta[1]
+```
+
+
+```{r}
+fit.glm33<-glm(y~poly(x,3))
+cv.glm(simulateddata, fit.glm33)$delta[1]
+```
+
+```{r}
+fit.glm44<-glm(y~poly(x,4))
+cv.glm(simulateddata, fit.glm44)$delta[1]
+```
+
+It looks like even with the new seed we are getting nearly the same results as the last time. This is to be expected with how the model is built though. 
+
+e)
+The smallest error is the same as before the 2nd glm so fit.glm22 and the error is 1.086596.
+
+f)
+```{r}
+summary(fit.glm4)
+```
+The summary function helps point out that the model only considers the linear and quadratic variables significant. It also validated the least error obtained from that glm.fit2 model.
+
