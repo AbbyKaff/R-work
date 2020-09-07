@@ -1,0 +1,141 @@
+### The snore example (Ex.10.2.1 NSI) ###
+x1 <- c(35,32,38,29,36,31,33,35)
+x2 <- c(17,20,25,15,10,12,8,16)
+x3 <- c(28,30,31,25,26,24,24,27)
+snore <- c(x1,x2,x3)
+n1 = length(x1)
+n2 = length(x2)
+n3 = length(x3)
+N = length(snore)
+device <- c(rep("Left",n1),
+            rep("Right",n2),
+            rep("Integrative",n3))
+tab = table(device)
+k = length(tab)
+
+factorial(N)/factorial(n1)/factorial(n2)/factorial(n3)
+
+##### 1-way ANOVA #####
+summary(aov(x ~ factor(device)))
+
+
+##### Functions for Permutation Test #####
+get.means <- function(x,group){
+  # x:     observed response vector
+  # group: group labels
+  tab = table(group)
+  k = length(tab)
+  mean.vec <- rep(NA,k)
+  for (i in 1:k){
+    mean.vec[i] <- mean(x[group==names(tab)[i]])
+  } 
+  mean.vec
+}
+get.F <- function(x,group){
+  tab = table(group)
+  k = length(tab)
+  ni = as.vector(tab)
+  N = length(x)
+  SSA <- sum(ni * (get.means(x,group))^2) - N*(mean(x))^2
+  SSE <- sum((x-mean(x))^2) - SSA
+  F = (SSA / (k-1)) / (SSE/(N-k))
+  F
+}
+get.F(x,group)
+
+perm.approx.F <- function(x,group,R){
+  k = length(table(group))
+  N = length(x)
+  F.val <- rep(NA,R)
+  for (r in 1:R){
+    set.seed(r)
+    F.val[r] <- get.F(x[sample(1:N,N,replace=F)],group)
+  } 
+  F.val
+}
+
+get.H <- function(x,group){
+  tab = table(group)
+  k = length(tab)
+  ni = as.vector(tab)
+  N = length(x)
+  SSA <- sum(ni * (get.means(x,group))^2) - N*(mean(x))^2
+  SST <- sum((x-mean(x))^2)
+  H = (N-1)*SSA/SST
+  H
+}
+perm.approx.H <- function(x,group,R){
+  k = length(table(group))
+  N = length(x)
+  H.val <- rep(NA,R)
+  for (r in 1:R){
+    set.seed(r)
+    H.val[r] <- get.H(x[sample(1:N,N,replace=F)],group)
+  } 
+  H.val
+}
+
+### Permutation using F statistic on original data ###
+f.obs = get.F(snore,device)
+F.val <- perm.approx.F(snore,device,10000)
+mean(F.val > f.obs)
+# 0.2528
+### Permutation using H statistic on raw data ###
+### is equilvvaent to using F statistic ###
+h.obs <- get.H(snore,device)
+H.val <- perm.approx.H(snore,device,10000)
+mean(H.val > h.obs)
+# 0.2528
+### Permutation using F statistic on ranks ###
+rank.x <- rank(snore)
+f.obs = get.F(rank.x,device)
+F.val <- perm.approx.F(rank.x,device,10000)
+mean(F.val > f.obs)
+#0.4952
+### Permutation using H statistic on rank ###
+h.obs <- get.H(rank.x,device)
+H.val <- perm.approx.H(rank.x,device,10000)
+mean(H.val > h.obs)
+#0.4952
+
+library(FSA)
+library(coin)
+independence_test(snore ~ device)
+oneway_test(snore~device)
+
+library(perm)
+permTS(snore~device, alternative="greater", method="exact.mc",
+       control=permControl(nmc=10^4-1))$p.value
+
+
+##### Kruskal-Wallis Test #####
+rank.x <- rank(snore)
+rank.mat <- matrix(rank.x,n1,3)
+colnames(rank.mat) <- c("Squeaker","Wrist.Tie","Chin.Strap")
+rank.mat
+colSums(rank.mat)
+colMeans(rank.mat)
+
+n.i = c(n1,n2,n3)
+R.avg.i = colMeans(rank.mat)
+SSA = sum(n.i*(R.avg.i - (N+1)/2)^2)
+SST = sum((rank.x - (N+1)/2)^2)
+(N-1)*SSA/SST
+
+kruskal.test(snore,as.factor(device)) # use vectors of data
+
+a <- 25.29167
+s <- 8.554069
+n <- 24
+error <- qnorm(0.975)*s/sqrt(n)
+left <- a-error
+right <- a+error
+left
+
+right
+
+#Monotone distance
+twenty <- c(48)
+twenty5 <- c(33, 59, 48, 56)
+thirty <- c(60, 101, 67)
+thirty5 <- c(85, 107)
