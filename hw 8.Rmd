@@ -1,0 +1,445 @@
+---
+title: "HW 8"
+author: "Abby Kaff"
+date: "12/3/2019"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+2.	Refer to the Boston data available in R package MASS (use the codes below), and do Exercise 9, parts (a) – (f), Section 7.9, ISL, and the following: (g) smoothing spline (df determined by LOOCV), and (h) loess using span values of 0.5 with 95% CI.
+library(MASS)
+attach(Boston)
+summary(Boston)
+
+9 (a)
+```{r}
+library(MASS)
+require(tidyverse)
+require(ggplot2)
+require(ggthemes)
+require(caret)
+require(broom)
+require(dplyr)
+require(knitr)
+set.seed(1)
+theme_set(theme_tufte(base_size = 14) + theme(legend.position = 'top'))
+data('Boston')
+
+model <- lm(nox~poly(dis, 3), data= Boston)
+tidy(model) %>%
+  kable(digits = 3)
+
+```
+
+
+```{r}
+Boston %>%
+  mutate(pred = predict(model, Boston)) %>%
+  ggplot() +
+  geom_point(aes(dis, nox, col = '1')) +
+  geom_line(aes(dis, pred, col = '2'), size = 1.5) +
+  scale_color_manual(name = 'Value Type',
+                     labels = c('Observed', 'Predicted'),
+values = c('#5DADE2', '#FF5733'))
+```
+
+The model finds each power of the dis coefficient to be statistically significant. In the graph above the fitted line shows the data well without overfitting. 
+
+b)
+```{r}
+errors <- list()
+models <- list()
+pred_df <- data_frame(V1 = 1:506)
+for (i in 1:9) {
+    models[[i]] <- lm(nox ~ poly(dis, i), data = Boston)
+    preds <- predict(models[[i]])
+    pred_df[[i]] <- preds
+    errors[[i]] <- sqrt(mean((Boston$nox - preds)^2))
+}
+
+errors <- unlist(errors)
+
+names(pred_df) <- paste('Level', 1:9)
+data_frame(RMSE = errors) %>%
+    mutate(Poly = row_number()) %>%
+    ggplot(aes(Poly, RMSE, fill = Poly == which.min(errors))) +
+    geom_col() + 
+    guides(fill = FALSE) +
+    scale_x_continuous(breaks = 1:9) +
+    coord_cartesian(ylim = c(min(errors), max(errors))) +
+    labs(x = 'Polynomial Degree')
+```
+
+When fitted and tested using the same data the model with the highest polynomial degree has the lowest RSS.
+```{r}
+require(tidyr)
+Boston %>%
+    cbind(pred_df) %>%
+    gather(Polynomial, prediction, -(1:14)) %>%
+    mutate(Polynomial = factor(Polynomial, 
+                               levels = unique(as.character(Polynomial)))) %>%
+    ggplot() + 
+    ggtitle('Predicted Values for Each Level of Polynomial') +
+    geom_point(aes(dis, nox, col = '1')) + 
+    geom_line(aes(dis, prediction, col = '2'), size = 1.5) +
+    scale_color_manual(name = 'Value Type',
+                       labels = c('Observed', 'Predicted'),
+                       values = c('#56B4E9', '#E69F00')) +
+    facet_wrap(~ Polynomial, nrow = 3)
+```
+
+c)
+
+```{r}
+errors <- list()
+
+folds <- sample(1:10, 506, replace = TRUE)
+errors <- matrix(NA, 10, 9)
+for (k in 1:10) {
+    for (i in 1:9) {
+        model <- lm(nox ~ poly(dis, i), data = Boston[folds != k,])
+        pred <- predict(model, Boston[folds == k,])
+        errors[k, i] <- sqrt(mean((Boston$nox[folds == k] - pred)^2))
+    }
+}
+
+errors <- apply(errors, 2, mean)
+
+data_frame(RMSE = errors) %>%
+    mutate(Poly = row_number()) %>%
+    ggplot(aes(Poly, RMSE, fill = Poly == which.min(errors))) +
+    geom_col() + theme_tufte() + guides(fill = FALSE) +
+    scale_x_continuous(breaks = 1:9) +
+    coord_cartesian(ylim = range(errors))
+```
+
+When we test on the out of sample data the model with polynomial degree 4 is chosen. When we look at the plot of all the different polynomial powers we can see that the 4 is the highest degree that does not show extreme signs of overfitting. 
+
+d)
+```{r}
+require(splines)
+model <- lm(nox ~ bs(dis, df = 4), data = Boston)
+
+kable(tidy(model), digits = 3)
+```
+
+```{r}
+Boston %>%
+    mutate(pred = predict(model)) %>%
+    ggplot() +
+    geom_point(aes(dis, nox, col = '1')) + 
+    geom_line(aes(dis, pred, col = '2'), size = 1.5) +
+    scale_color_manual(name = 'Value Type',
+                       labels = c('Observed', 'Predicted'),
+                       values = c('#5DADE2', '#FF5733')) +
+    theme_tufte(base_size = 13)
+```
+
+The model as shown above finds all the different bases to be statistically significant. The prediciton line seems to fit the data well without overfitting. 
+
+e)
+
+```{r}
+errors <- list()
+models <- list()
+pred_df <- data_frame(V1 = 1:506)
+for (i in 1:9) {
+    models[[i]] <- lm(nox ~ bs(dis, df = i), data = Boston)
+    preds <- predict(models[[i]])
+    pred_df[[i]] <- preds
+    errors[[i]] <- sqrt(mean((Boston$nox - preds)^2))
+}
+
+names(pred_df) <- paste(1:9, 'Degrees of Freedom')
+data_frame(RMSE = unlist(errors)) %>%
+    mutate(df = row_number()) %>%
+    ggplot(aes(df, RMSE, fill = df == which.min(errors))) +
+    geom_col() + guides(fill = FALSE) + theme_tufte() +
+    scale_x_continuous(breaks = 1:9) +
+    coord_cartesian(ylim = range(errors))
+
+```
+
+When trained and tested on the same data, a model with higher complex is proven to be better.
+
+
+```{r}
+Boston %>%
+    cbind(pred_df) %>%
+    gather(df, prediction, -(1:14)) %>%
+    mutate(df = factor(df, levels = unique(as.character(df)))) %>%
+    ggplot() + ggtitle('Predicted Values for Each Level of Polynomial') +
+    geom_point(aes(dis, nox, col = '1')) + 
+    geom_line(aes(dis, prediction, col = '2'), size = 1.5) +
+    scale_color_manual(name = 'Value Type',
+                       labels = c('Observed', 'Predicted'),
+                       values = c('#56B4E9', '#E69F00')) +
+    facet_wrap(~ df, nrow = 3)
+```
+
+f)
+```{r}
+folds <- sample(1:10, size = 506, replace = TRUE)
+errors <- matrix(NA, 10, 9)
+models <- list()
+for (k in 1:10) {
+    for (i in 1:9) {
+        models[[i]] <- lm(nox ~ bs(nox, df = i), data = Boston[folds != k,])
+        pred <- predict(models[[i]], Boston[folds == k,])
+        errors[k, i] <- sqrt(mean((Boston$nox[folds == k] - pred)^2))
+    }
+}
+
+errors <- apply(errors, 2, mean)
+
+data_frame(RMSE = errors) %>%
+    mutate(df = row_number()) %>%
+    ggplot(aes(df, RMSE, fill = df == which.min(errors))) +
+    geom_col() + theme_tufte() + guides(fill = FALSE) +
+    scale_x_continuous(breaks = 1:9) +
+    coord_cartesian(ylim = range(errors))
+```
+When validated using the out of sample data a simpler model is chosen. Just like with the polynomial validation we can see that this is the most complex model that does not show obvious signs of overfitting. 
+
+g) smoothing spline (df determined by LOOCV)
+```{r}
+#plot(nox,dis,cex=.5,col="darkgrey")
+#title("Smoothing Spline")
+#fit=smooth.spline(nox,dis,df=16)
+#fit2=smooth.spline(nox,dis,cv=TRUE)
+#fit2$df
+#lines(fit,col="red",lwd=2)
+#lines(fit2,col="blue",lwd=2)
+#legend("topright",legend=c("16 DF","6.8 #DF"),col=c("red","blue"),lty=1,lwd=2,cex=.8)
+```
+
+h) loess using span values of 0.5 with 95% CI.
+
+
+10
+
+a)
+```{r}
+set.seed(123)
+require(ISLR); require(caret); require(leaps); require(tidyverse); 
+require(ggthemes); require(broom); require(knitr)
+theme_set(theme_tufte(base_size = 14) + theme(legend.position = 'top'))
+data(College)
+
+inTrain <- createDataPartition(College$Outstate, p = 0.75, list = FALSE)
+
+training <- College[inTrain,]
+testing <- College[-inTrain,]
+
+dummy_matrix <- model.matrix(Outstate ~ ., data = training)
+
+forward_model <- regsubsets(x = dummy_matrix, y = training$Outstate,
+                            method = 'forward', nvmax = 17)
+```
+
+```{r}
+fit_summary <- summary(forward_model)
+
+data_frame(RMSE = sqrt(fit_summary$rss/nrow(training)),
+           Cp = fit_summary$cp, 
+           BIC = fit_summary$bic,
+           AdjustedR2 = fit_summary$adjr2) %>%
+    mutate(id = row_number()) %>%
+    gather(Metric, value, -id) %>%
+    ggplot(aes(id, value, col = Metric)) +
+    geom_line() + 
+    geom_point() + 
+    labs(x = 'Number of Variables Used', y = '') + 
+    facet_wrap(~ Metric, scales = 'free') +
+    scale_x_continuous(breaks = 1:17)
+```
+
+We started by plotting the learning curve metrics. Using the adjusted R^2 and Mallow's CP tell us that nothing would overfit drastically if all the coefficients were selected. The BIC tells us to stop at 8 variables, and that seemse to be the best number of covariates. 
+
+```{r}
+options(knitr.kable.NA = '')
+num_coefs <- rep(NA, 12)
+for (i in 1:12){
+    nam <- names(coef(forward_model, id = i))
+    nam <- nam[!grepl(pattern = 'Intercept', x = nam)]
+    num_coefs[i] <- length(nam) + 1
+}
+
+coef(forward_model, id = 1:12) %>%
+    map(names) %>%
+    map(function(x) x[!grepl(pattern = 'Intercept', x = x)]) %>%
+    map(paste, collapse = ' + ') %>%
+    map(function(x) paste('Outstate', x, sep = ' ~ ')) %>%
+    map(as.formula) %>%
+    map(function(x) lm(formula = x, data = training)) %>%
+    map(tidy) %>%
+    reduce(rbind) %>%
+    mutate(num.covs = rep(1:12, num_coefs),
+           estimate = round(estimate, digits = 2),
+           estimate = ifelse(p.value < 0.05,
+                             paste0(estimate, '**'),
+                             estimate)) %>%
+    select(num.covs, term, estimate) %>%
+    spread(num.covs, estimate) %>%
+    filter(!grepl('Intercept', term)) %>%
+    kable()
+```
+
+Looking at a table for clarity of all p values for each subset, it looks like after the 8th covarite was added it looks like no new information was added. 
+
+b) 
+```{r}
+coefs <- names(coef(forward_model, id = 8))
+coefs <- coefs[-grep('Intercept', coefs)]
+
+gam_model <- train(x = training[,coefs], y = training$Outstate,
+                   method = 'gamSpline',
+                   trControl = trainControl(method = 'cv', number = 10),
+                   tuneGrid = expand.grid(df = 1:10))
+plot(gam_model)
+```
+This demonstrates a 10 fold cross validation
+
+```{r}
+postResample(predict(gam_model, training), training$Outstate)
+
+```
+
+We get an r squared of 0.711
+
+```{r}
+#require(tidyverse)
+#plot_names <- names(coef(gam_model$finalModel))[-1]
+#coefs <- str_match(plot_names, '([0-9A-Z.a-z]*),')[,2]
+#par(mfrow = c(7,2), mar = c(4, 4, 1, 1))
+#for (i in 1:length(plot_names)) {
+#    plot(gam_model$finalModel, terms = plot_names[i], col = 'red', lty = 2)
+#    plot(training[,coefs[i]], training$Outstate, xlab = coefs[i], 
+#         ylab = 'Outstate', pch = 16, col = 'grey40')
+#}
+```
+
+```{r}
+range01 <- function(x){(x - min(x)) / (max(x) - min(x))}
+
+augment(gam_model$finalModel) %>%
+    select(.fitted, .outcome, .resid) %>%
+    mutate(dist = range01(abs(.resid)),
+           correctness = range01(1 - dist)) %>%
+    ggplot(aes(.fitted, .resid)) +
+    geom_point(aes(col = correctness, alpha = 1 - correctness), size = 2) +
+    geom_hline(yintercept = 0, size = 1.5, lty = 2, alpha = 0.5) +
+    geom_smooth(method = 'loess', alpha = 0.01, col = 'lightblue3') +
+    labs(x = 'Fitted', y = 'Residual') + 
+    guides(col = FALSE, alpha = FALSE)
+```
+
+It doesn't seem like there are patterns in the residual plot. 
+
+
+c)
+```{r}
+postResample(predict(gam_model, testing), testing$Outstate)
+```
+We can see that the R^2 is slightly smaller, this is because the model made from the training data will always be more accurate than the testing data. 
+
+d)
+First begin by seeing if the SLM with training data and ANOVA to see if the GAM model improves
+```{r}
+lm_model <- train(x = training[,coefs], y = training$Outstate,
+                   method = 'lm',
+                   trControl = trainControl(method = 'cv', number = 10))
+
+anova(lm_model$finalModel, gam_model$finalModel) %>%
+    tidy %>%
+    mutate(model = c('Linear', 'GAM'),
+           percent = sumsq/lag(rss) * 100) %>%
+    select(model, sumsq, percent, rss, p.value) %>%
+    kable(digits = 3)
+```
+Tis shows that the GAM model is statistically significant and improves by alot
+
+```{r}
+tidy(gam_model$finalModel) %>%
+    select(term, statistic, p.value) %>%
+    kable(digis = 3)
+```
+
+All predictors were statistically significant other than books. This tells us that there is a nonlinear relationship with all variables execpt for books.
+
+11
+
+a & b)
+
+```{r}
+set.seed(89)
+y<- rnorm(100)
+set.seed(45)
+x1<- rnorm(100)
+ set.seed(67) 
+x2<- rnorm(100)
+  
+beta1<-2
+```
+
+c)
+```{r}
+a <- y - beta1 * x1
+beta2 <- lm(a ~ x2)$coef[2]
+```
+
+d)
+```{r}
+a <- y - beta2 * x2
+beta1 <- lm(a ~ x1)$coef[2]
+```
+
+e)
+```{r}
+iter <- 10
+df <- data.frame(0.0, 0.27, 0.0)
+names(df) <- c('beta0', 'beta1', 'beta2')
+for (i in 1:iter) {
+  beta1 <- df[nrow(df), 2]
+  a <- y - beta1 * x1
+  beta2 <- lm(a ~ x2)$coef[2]
+  a <- y - beta2 * x2
+  beta1 <- lm(a ~ x1)$coef[2]
+  beta0 <- lm(a ~ x1)$coef[1]
+  print(beta0)
+  print(beta1)
+  print(beta2)
+  df[nrow(df) + 1,] <- list(beta0, beta1, beta2)
+}
+```
+```{r}
+plot(df$beta0, col = 'black', type = 'l')
+lines(df$beta1, col = 'blue')
+lines(df$beta2, col = 'red')
+```
+
+f)
+```{r}
+plot(df$beta0, col = 'red', type = 'l')
+lines(df$beta1, col = 'blue')
+
+lines(df$beta2, col = 'green')
+res <- coef(lm(y ~ x1 + x2))
+abline(h = res[1], col = 'darkred', lty = 2)
+
+abline(h = res[2], col = 'darkblue', lty = 2)
+abline(h = res[3], col = 'darkgreen', lty = 2)
+```
+
+g) 
+On this data set, how many backfitting iterations were required
+in order to obtain a “good” approximation to the multiple regression
+coefficient estimates?
+
+it seems like for this dataset only 3 iterations are needed in order to converge.
+
+
+
