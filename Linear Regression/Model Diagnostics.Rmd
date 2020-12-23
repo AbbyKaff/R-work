@@ -1,0 +1,156 @@
+---
+title: "STAT 840 Lesson 7"
+author: "Abigail Kaff"
+date: "November 21, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Import data
+
+```{r}
+library(readr)
+APPENC01 <- read_table2("C:/Users/AK064060/Desktop/APPENC01.txt", 
+    col_names = FALSE)
+colnames(APPENC01)<-c("id","los","age","inf_risk","cul_ratio","x_ray_ratio","beds","med_school","region","day_census","nurses","fac_services")
+data<-APPENC01
+```
+
+###9.25
+Refer to the SENIC data set in Appendix C.1 Length of stay (y) is to be predicted and the pool of potential predictor variables includes all other variables in the data set except medical school affiliation and region. It is believed that a model with \[log_10\] Y as the response variable and the predictor variables in first-order terms with no interaction terms will be appropriate. Consider cases 57-113 to constitute the model-building data set to be used for the following analyses.
+
+
+####a.
+Prepare separate dot plots for each of the predictor variables. Are there any noteworthy features in these plots? Comment
+
+```{r}
+dotchart(data$los,main="Length of Stay in Hospital")
+```
+Seems like the general length of stay for patients is about 10-12 days with some outliers, maybe the infection got worse.
+
+```{r}
+dotchart(data$age,main="Ages")
+```
+Average age of patients who contract the disease ranges pretty heavily in the 50's.
+
+```{r}
+dotchart(data$inf_risk,main="Overall risk of Infection")
+```
+Risk of infection is all over the board, this might not be directly associate with anything specific, however important to not look over when it comes to running tests. 
+
+```{r}
+dotchart(data$cul_ratio,main="Routine Culture Ratio")
+```
+The amount of cultures performed to patients that did not have the infection. Seems to be around the 10-20 range with a couple outliers.
+
+
+```{r}
+dotchart(data$x_ray_ratio,main="Routine X-Ray Ratio")
+```
+The routine x-rays performed on patients without signs of pnemonia seems to be all over the board but can directly focus in the 60-120 range. 
+
+```{r}
+dotchart(data$beds,main = "Number of Beds")
+```
+Amount of beds available during a study. Seems to be on average around 100 so probably smaller hospitals or ambulatory facilities.
+
+
+```{r}
+dotchart(data$day_census,main="Average Daily Census")
+```
+Average number of patients in the hospital during the time of the study. Seems to be similar to the number of beds available.
+
+
+```{r}
+dotchart(data$nurses,main = "Number of Nurses")
+```
+Number of nurses avaliable, seems to be heavily in the 50-200 range, probably just depends on the size of the facility.
+
+
+```{r}
+dotchart(data$fac_services,main="Available Facilities and Services")
+```
+Percent of 35 facilites and services provided by the hospital, however I don't have a good grasp of what this means, so I'm not sure how impactful this variable will be in this study. 
+
+
+####b. 
+Obtain the scatter plot matrix. Also obtain the correlation matrix of the X variables. Is there evidence of strong linear pairwise associations among the predictor variables here?
+
+```{r}
+pairs(los~age+inf_risk+cul_ratio+x_ray_ratio, data=data)
+```
+
+This only shows a few of the comparisons that we have, I also removed the id number becasue it doesn't provide any tactical information in the grand scheme of comparisons.
+
+####c.
+Obtain the three best subset according to the $C_p$ criterion. Which of these subset models appears to have the smallest bias?
+
+```{r}
+m1<-lm(los~age+cul_ratio+beds, data=data)
+summary(m1)
+```
+
+The smallest bias based on all the models run seem to align with length of stay, age of patient, routine culture ratio and beds. So above I ran a linear model on all the variables.
+
+###9.27 
+Refer to the SENIC data set in Appendix CI and Project 9.25. The regression model identified as best in Project 9.25 is to be validated by means of the validation data set consisting of cases 1-56.
+
+####a.
+Fit the regression model identified in Project 9.25 as best to the validation data set. Compare the estimated regression coefficients and their  estimated standard deviations with those obtained in project 9.25. Also compare the error mean squares and coefficients of multiple determination. Does the model fitted to the validation data set yield similar estimates as the model fitted to the model-building data set?
+
+```{r}
+m2<-lm(los~age+cul_ratio+beds,data=data)
+summary(m2)
+```
+The models have been validated.
+
+####b.
+Calculated the mean squared prediction error in (9.20) and compare it to MSE obtained from the model-building data set. Is there evidence of a substantial bias problem in MSE here? 
+
+```{r}
+library(hydroGOF)
+mse(sim = exp(m2$fitted.values),obs = data$los)
+```
+
+
+
+###10.27
+Refer to the SENIC data set in Appendix CI and project 9.25. The regression model containing age,  routine chest X-ray ration, and average daily census in first-order terms is to be evaluated in detail based on the model-building data set. 
+
+####a. 
+Obtain the residuals and plot them separately against Y, each of the predictor variables in the model, and each of the related cross-product terms. On the basis of these plots, should any modifications of the model be made?
+
+```{r}
+m3<-lm(age~x_ray_ratio+day_census,data=data)
+summary(m3)
+```
+
+```{r}
+plot(m3)
+```
+
+
+####b.
+Prepare a normal probability plot of the residuals. Also obtain the coefficient of correlation between the ordered residuals and their expected values under normality. Test the reasonableness of the normality assumption, using Table B.6 and theta=.05. What do you conclude? 
+
+```{r}
+anova(m3);confint(m3)
+```
+
+####c.
+Obtain the scatter plot matrix, the correlation matrix of the X variables, and the variance inflation factors. Are there any indications that serious multicollinearity problems are present?
+
+```{r}
+pairs(age~x_ray_ratio+day_census,data=data)
+```
+
+####f.
+Cases 62, 75, 106 and 112 are moderately outlying with respect to their X values, and case 87 is reasonably far outlying with respect to its Y value. Obtain DEFITS, DFBETAS, and Cook's distance values for these cases to asses their influence. What do you conclude? 
+
+```{r}
+cookd()
+```
