@@ -1,0 +1,182 @@
+---
+title: "STAT 840 Lesson 8"
+author: "Abby Kaff"
+date: "12/2/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Lesson 8: Multiplicative Models, Models with Categorical Predictors, and Other Extensions
+
+###Required Problems : 8.4, 8.11, 8.14, 8.15, 8.15, 8.21, 8.29, 8.40
+
+####8.4 
+Refer to Muscle mass Problem 1.27. A second-order regression model (8.2) with independent normal error terms is expected to be appropriate.
+
+a) Fit regression model (8.2). Plot the fitted regression function and the data. Does the quadratic regression function appear to be a good fit here? Find $R^2$.
+
+```{r}
+library(readr)
+CH01PR27 <- read_table2("C:/Users/AK064060/Desktop/CH01PR27.txt", 
+    col_names = FALSE) #depends on computer being used
+#CH01PR27 <- read_table2("~/Desktop/MS App Stats/STAT 840/Lesson 8 /CH01PR27.txt", col_names = FALSE)
+colnames(CH01PR27)<-c("mass","age")
+data<-CH01PR27
+```
+
+```{r}
+# Fit the initial model in order to refine it
+x1 = data$age-mean(data$age)
+x1sq= x1^2
+Data = cbind(data,x1,x1sq)
+
+m1 <- lm(mass~x1+x1sq, data=Data)
+summary(m1)
+```
+$y_i = 82.93-1.84_xi+ 0.0148_x_i^2$
+
+b) Test whether or not there is a regression relation; use $\alpha = .05$. State the alternatives, decision rule, and conclusion. 
+
+```{r}
+anova(m1);qf(0.95,1,58)
+```
+The regression fuction looks to be a good fit, we should note the $R^2$ is small. Lack of fit F-stat is 0.62, p-value=0.757, the p-value is small, we fail to reject the null hypothesis (the relationship is reasonable). We do not have sufficient evidence to conclude that there is a lack of fit for the quadratic model. 
+
+
+c) Estimate the mean muscle mass for women aged 48 years; use a 95 percent prediction interval. Interpret your interval. 
+
+```{r}
+a <- 48
+s <- 2
+n <- 20
+error <- qnorm(0.975)*s/sqrt(n)
+left <- a - error
+right <- a + error
+left;right
+```
+92.53 and 106.2
+
+d) Predict the muscle mass for a woman whose age is 48 years; use a 95 percent prediction interval. Interpret your interval. 
+
+```{r}
+a <- 48
+s <- 2
+n <- 20
+error <- qnorm(0.975)*s/sqrt(n)
+left <- a - error
+right <- a + error
+left;right
+```
+80.0971 and 118.61
+
+e) Test whether the quadratic term can be dropped from the regression model; use $\alpha = .05$. State the alternatives, decision rule, and conlusion. 
+
+```{r}
+t.star <- 1.776
+t.star > 0.05 #do not reject H_0?
+t.star < 2.00247 #do not reject H0?
+```
+We fail to reject the null hypothesis, so we do not need to drop the quadratic terms
+
+f) Express the fitted regression function obtained in part (a) in terms of the original variable X. 
+
+```{r}
+#y_i = 82.93-1.84_xi+ 0.0148_x_i^2
+```
+
+g) Calculate the coefficient of simple correlation between $X$ and $X^2$ and between $x$ and $x^2$. Is the use of a centered variable helpful here?
+
+The correlation between X and $X^2$ =.996 and the correlation between x and $x^2$ =-.0384. It is helpful because of the high correlation found in X and $X^2$.
+
+####8.11 
+Refer to Brand preference Problem 6.5. 
+
+a) Fit regression model (8.22).
+
+```{r}
+
+```
+
+b) Test whether or not the interaction term can be dropped from the model; use $\alpha = .05$. State the alternatives, decision rule, and conclusion. 
+
+```{r}
+```
+
+####8.14 
+In a regression study of factors affecting learning time for a certain task (measured in minutes), gender of learner was included as a predictor variable $(X_2)$ that was coded $X_2 = 1$ if male and 0 if female. It was found that $b_2 = 22.3$ and $s({b_2})=3.8$. An observer questioned whether the coding scheme for gender is fair becasue it results in a positive coefficient, leading to longer learning times for males than females. Comment. 
+
+Yes I think in this instance it is considered a negative way to look at the coefficient, I would suggest changing it to a dummy variable of sex, one being male and one being female, in order to get a less skewed learning curve. 
+
+####8.15
+Refer to Copier Mintenance Problem 1.20. The users of the copiers are either training instituations that use a small model, or business firms that use a large, commercial model. An analyst at Tri-City wishes to fit a regression model including both number of copiers serviced $(X_1)$ and type of copier $(X_2)$ as predictor variables and estimate the effect of copier model (S--small, L--large) on number of minutes spent on the service call. Records show that the models serviced in the 45 calls were: 
+
+Assume that regression model (8.33) is appropriate, and let $X_2 = 1$ if small model and 0 if large, commercial model. 
+
+a) Explain the meaning of all regression coefficients in the model. 
+
+y = response variable
+$X_1$ = Predictor variable 1
+$X_2$ = Predictor variable 2
+e = residual error (unmeasured)
+$\beta_0$ = Y intercept
+$\beta_1$ = Regression coefficient 1
+$\beta_2$ = Regression coefficient 2
+
+
+b) Fit the regression model and state the estimated regression function. 
+
+```{r}
+data2 <- read_table2("C:/Users/AK064060/Desktop/CH01PR20.txt", 
+    col_names = FALSE)
+colnames(data2)<-c("X","Y")
+X1 = data2$Y-mean(data2$Y)
+X2 = X1^2
+m2 <-lm(Y~X1+X2, data=data2)
+summary(m2)
+```
+-0.5802+15.035(copiers serviced)+
+
+c) Estimate the effect of copier model on mean service time with a 95 percent confidence interval. Interpret your interval estimate. 
+
+```{r}
+confint(m2,level=0.95)
+```
+
+d) Why would the analyst wish to include $X_1$, number of copiers, in the regression model when interest is in estimating the effect of type of copier model on service time? 
+
+
+
+e) Obtain the residuals and plot them against $X_1X_2$.  IS there any indication that na interation term in the regression model would be helpful?
+
+```{r}
+plot(resid(m2))
+```
+
+####8.21
+IN a regression analysis of on-the-job head injuries of warehouse laborers cause by falling objects, Y is a measure of severity of the injury, $X_1$ is an index reflecting both the weight of the object and the distance it fell, and $X_2$ and $X_3$ are indicator variables for nature of head protetion worn at the time of the accident:
+
+The response function to be use in the study is \[E(Y) = \beta_0 + \beta_1X_1 + \beta_2X_2 + \beta_3X_3\].
+
+a) Develop the response function for each type of protection category.
+
+```{r}
+```
+
+b) For each o the following questions, specify the alternatives $H_0$ and $H_a$ for the appropriate test: (1) With $X_1$ fixed, does wearing a bump cap reduce the expected severity of injury as compared with wearing no protection? (2) With $X_1$ fixed, is the expected severity of injury the same when wearing a hard hat as when wearing a bump cap?
+
+```{r}
+```
+
+####8.29
+Consider the second-order regession model with one predictor variable in (8.2) and the following two sets of X values: 
+
+Set 1: 1.0  1.5  1.1  1.3   1.9  .8  1.2  1.4  
+Set 2: 12   1   123   17    415   71  283   38
+
+For each set, calculate the coefficient of correlation between $X$ and $X^2$, then between $x$ and $x^2$. Also calculate the coefficients of correlation between $X$ and $X^3$ and between $x$ and $x^3$. What generalizations are suggested by your results? 
+
+```{r}
+```
