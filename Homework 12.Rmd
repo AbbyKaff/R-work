@@ -1,0 +1,142 @@
+---
+title: "Homework 12"
+author: "Abby Kaff"
+date: "11/24/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+```
+
+The idea is simple here. I just want you to take the iris data and apply every classification method we've learned to it. Do a cross validation and see if you can figure out an approach that will give the highest accuracy (we are going to use accuracy this time, it shouldn't be a problem with our balanced classes). This is going to be challenging, because I haven't explicitly shown you how to do everything this assignment involves. That is also part of the point, because you are going to need to start learning how to use these methods from their documentation for your work. I won't have any automatic grading, so you are free to use your own approach. 
+ 
+SVMs will be easy, because the libraries I showed you can already do multi-class classification and I already basically showed you how to do it for this dataset. KNN will be pretty easy as well. I haven't shown you much about how to use the built-in methods, but you can use the code I provided or figure out how to use some functions. The LDA built-in functions should already be able to do it as well. Just make sure you are looking at the class variable of the prediction result in R to make your decisions. For logistic regression, you will need to do something new. In R, you can use the multinom function in the nnet package. It works just like most of the model functions.
+
+SETUP
+```{r}
+library(rpart)
+library(rpart.plot)
+library(tree)
+library(caret)
+library(kernlab)
+library(MASS)
+library(randomForest)
+require(e1071)
+
+#Import data
+dataSample <- sample(1:nrow(iris),10)
+summary(iris)
+dataSample <- sample(1:nrow(iris),10)
+iris[dataSample,]
+sapply(iris,class)
+
+
+#Creating training and testing dataset
+divisionSize <- nrow(iris) * 0.6
+na.omit(iris)
+dataDivide <- sample(1:nrow(iris),size=divisionSize)
+train <- iris[dataDivide,]
+test<- iris[-dataDivide,]
+classTesting <- as.numeric(iris$Species[-dataDivide])
+nCrossValTesting <- iris[-dataDivide,]
+summary(train)
+
+```
+
+LDA
+```{r}
+fit.LDA = lda(Species ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, data=train)
+fit.LDA
+```
+
+Logistic Regression - multinon function (nnet)
+```{r}
+library(nnet)
+multinom.fit <- multinom(Species ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, data = train)
+# Checking the model
+summary(multinom.fit)
+
+## extracting coefficients from the model and exponentiate
+exp(coef(multinom.fit))
+
+```
+
+SVM
+
+```{r}
+mod = svm(Species ~ ., iris, kernel='linear', cost=10, type='C', cross=10)
+mod$tot.accuracy
+
+mod = glm(Species ~ ., data=iris, family='binomial')
+
+library(MASS)
+
+mod = multinom(Species ~ ., data=iris)
+#predict(mod)
+
+mod = lda(Species ~ ., data=iris)
+#predict(mod)
+```
+
+
+KNN
+```{r}
+library(class)
+iris_train_labels <- train$Species 
+dim(iris_train_labels)
+
+iris_test_labels <- test$Species
+dim(iris_test_labels)
+
+iris_test_pred1 <- knn(train = train, test = test, cl= train$Species,k = 3,prob=TRUE) 
+CrossTable(x = iris_test_labels, y = iris_test_pred1,prop.chisq=FALSE) 
+```
+
+
+Cross-Validation
+```{r}
+#Cross validation
+#We will 10-fold crossvalidation to estimate accuracy.
+control <- trainControl(method="cv", number=10)
+metric <- "Accuracy"
+
+#Selecting a good model
+# a) linear algorithms
+set.seed(7)
+modelLDA <- train(Species~., data=iris, method="lda", metric=metric, trControl=control)
+
+# b) nonlinear algorithms
+# CART
+set.seed(7)
+modelCART <- train(Species~., data=iris, method="rpart", metric=metric, trControl=control)
+
+# kNN
+set.seed(7)
+modelKNearestNeighbour <- train(Species~., data=iris, method="knn", metric=metric, trControl=control)
+
+# c) advanced algorithms
+# SVM
+set.seed(7)
+modelSupportVectorMachine <- train(Species~., data=iris, method="svmRadial", metric=metric, trControl=control)
+
+# Random Forest
+set.seed(7)
+modelRandomForest <- train(Species~., data=iris, method="rf", metric=metric, trControl=control)
+
+# summarize accuracy of models
+results <- resamples(list(lda=modelLDA, cart=modelCART, knn=modelKNearestNeighbour, svm=modelSupportVectorMachine, rf=modelRandomForest))
+summary(results)
+
+#Compare accuracy of models
+dotplot(results)
+
+#Therefore the most accurate model in this case was LDA The results for just the LDA model can be summarized.
+print(modelLDA)
+
+#Estimate skill of LDA on the validation dataset
+dataPredictions <- predict(modelLDA, nCrossValTesting)
+confusionMatrix(dataPredictions, nCrossValTesting$Species)
+
+```
