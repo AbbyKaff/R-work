@@ -1,0 +1,180 @@
+---
+title: "Analysis of Exercise and it's Effects"
+author: "Abigail Kaff"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+  word_document: default
+  pdf_document: default 
+  odt_document: default
+  md_document: default
+  rtf_document: default
+---
+
+```{r setup, include=FALSE}
+# This chunk of code sets up the R session to perform the analysis
+# Load packages, load data, load any other source scripts that may contain
+# code or objects you will want to run to produce the report
+
+# load packages
+library(knitr)
+library(DT)
+library(readr)
+library(ggplot2)
+library(dplyr)
+
+# declare global chunk options
+# knitr::opts_chunk$set(echo = FALSE)
+
+# determine output format dynamically
+out_type <- knitr::opts_knit$get("rmarkdown.pandoc.to")
+
+# load data sets
+# For example,
+X25 <- read_csv("C:/Users/AK064060/Desktop/25.csv")
+summary(X25)
+
+# define custom function for data label outputs
+# The DT::datatable function is great for producing tables for HTML docs
+# Otherwise, use the knitr::kable function to produce tables
+# You should use the R help to learn about these two functions as they
+# will need to be used to produce visually appealing tables for your 
+# report
+
+display_output <- function(dataset, out_type, filter_opt = 'none') {
+  
+  if (out_type == "html") {
+    out_table <- DT::datatable(dataset, filter = filter_opt)
+  } else {
+    out_table <- knitr::kable(dataset)
+  } 
+  
+  out_table
+}
+```
+
+## Primary Analysis Objectives
+
+1. Determine whether there is a correlation between calories burned by an individual and their sleep, mood, and weight. 
+
+
+## Background
+
+
+This dataset was found on Kaggle.com in order to understand the assocation between the amount a person works out versus how active they are overall. Below is the link:
+
+https://www.kaggle.com/aroojanwarkhan/fitness-data-trends/home
+
+All the demographics included in this data set look helpful in understanding activity and what it can do to a person. This set includes information on step count, which was tracked by Samsung Health; mood, which is on a scale of: Happy, neutral, and sad, each given a numerical value of 300, 200, and 100; calories burned, this was tracked by Samsung Health as well; Hours of sleep, for each day by the participant; bool of active, so the feeling of activeness measured numerically from 500 to 0, Active to Inactive; Finally weight was taken into account for this dataset as well.  
+
+
+### Demographics Data set
+
+```{r demo-describe, include=FALSE}
+# the display_output function was defined above, it's producing a table
+# for each of the calls below
+#display_output(X25, out_type)
+```
+
+## Analysis Methods
+
+#### Basic Plots
+Mood effected by number of calories burned
+```{r}
+ggplot(data=X25, aes(x=calories_burned))+geom_histogram()+facet_grid(mood~.)+stat_bin(data=X25, bins=10)+ggtitle("Mood Effected by Calories Burned")
+```
+We can see that it is more likely to be in a better mood if the amount of calories burned are higher than 100. 
+
+Mood effected by hours of sleep a night
+
+```{r}
+ggplot(data=X25,aes(x=hours_of_sleep))+geom_histogram()+facet_grid(mood~.)+stat_bin(data=X25, bins=10)+ggtitle("Mood Effected by Hours of Sleep")
+```
+This seems to be not as obvious as the previous plot, It does seem that there is a better mood with more sleep between 6-8 hours, however the mid range mood seems to only need 4.5-5 hours of sleep.
+
+### Assumptions
+
+All inferences are conducted using $\alpha = 0.05$ unless stated otherwise.  No adjustments for multiplicity are made as this is an exploratory analysis. Discrete variables are summarized with proportions and frequencies.  Continuous variables are summarized using the following statistics:
+
+* mean
+* median
+* standard deviation
+* coefficient of variation
+* quantiles
+* minimum
+* maximum
+
+#### QQ Plot
+According to the following plots, there is a linear regression between mood and calories burned. 
+
+```{r}
+qqnorm(X25$mood)
+qqline(X25$mood)
+```
+
+```{r}
+qqnorm(X25$calories_burned)
+qqline(X25$calories_burned)
+```
+
+### Primary Objective Analysis
+
+Summary statistics are produced for baseline characteristics.  
+
+```{r data-setup, include=FALSE}
+# In this section you can clean and restructure the dataset(s) as needed
+# for analysis
+m1<-lm(mood~hours_of_sleep+step_count+calories_burned+weight_kg, data=X25)
+summary(m1)
+```
+
+The primary objective analysis uses a Wilcoxon signed rank test to determine if there is a significant difference between the linear model.   
+
+```{r}
+shapiro.test(residuals(m1))
+```
+
+#### Bivariate Associations
+A scatterplot matrix indicates positive linear associations between all variables.
+
+```{r}
+pairs(mood~hours_of_sleep+calories_burned+step_count+ weight_kg, data=X25)
+```
+It is not surprising that calories burned and step count have a really high linear assocaition, because calories burned actually relies on the number of steps taken.
+
+### Secondary Objective Analyses
+
+
+```{r}
+qqnorm(residuals(m1))
+qqline(residuals(m1))
+```
+
+### Primary Objective Results
+
+The primary objective analysis uses a t test to determine if there is a significant difference between mood and calories burned.
+
+```{r primary}
+# Here you can produce relevant tables and plots for your secondary objective
+# The example below produces some plots using functions already defined in 
+# another script
+t.test(X25$mood, X25$calories_burned, pooled=TRUE)
+
+```
+
+This two sample t-test is considered pooled because the two variables have the same amount of observations. We gain information on the p-value $< 2.2e-16$. Looking at the variance between the two, mood seems to be average or neutral getting a mean of 211.45. While the mean of calories burned in order to get that neutral mood is 93.45 calories burned a day.
+
+
+### Conclusions and Discussion
+
+There is sufficient evidence to conclude that a higher amount of calories burned does effect the mood of the participant. As we do not reject the null hypothesis $(p = 2.2e-16)$. 
+
+Based on the data set I chose for this specific analysis, I would say that I did not necessarily come up with any great and new information. This being the fact that the main purpose of the dataset was to provide insight into how active someone feels, but due to the bad data associated with activeness, I felt it was not something to further analyze. I took the analysis into a deeper understanding of the mood that the participant felt based on their levels of activity and rest. It can be seen that the highest correlation between mood and any other variable is mood and calories burned. Taking that information and pushing it against other variables like sleep, did not seem to make as much sense as one would assume. 
+
+All of the statistical analyses in this document will be performed using `r R.version.string`.  R packages used will be maintained using the [packrat](http://rstudio.github.io/packrat/) dependency management system.  
+
+```{r session-info}
+sessionInfo()
+```
+
