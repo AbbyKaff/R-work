@@ -1,0 +1,56 @@
+---
+title: "Week 14 Discussion"
+author: "Abby Kaff"
+date: "12/12/2020"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(devtools)
+install_github("vqv/ggbiplot")
+library(ggbiplot)
+```
+
+We're going to do something different this week. Use the wholesale data and try to do some exploratory data analysis using some of the methods we've discussed (and other methods if you like). Focus on the quantitative variables, however, go ahead and have a look at how your clustering relates to the Channel data (you can ignore the Region variable).
+
+Read in the data
+```{r}
+data <- read.csv("C:/Users/AK064060/Downloads/Wholesale customers data.csv")
+# Split data into test/train
+data$Channel <- as.factor(data$Channel)
+divisionSize <- nrow(data) * 0.6
+na.omit(data)
+dataDivide <- sample(1:nrow(data),size=divisionSize)
+train <- data[dataDivide,]
+test<- data[-dataDivide,]
+```
+
+Run PCA
+```{r}
+pca_model <- prcomp(data[,2:8])
+summary(pca_model)
+```
+
+```{r}
+pca_model$center
+pca_model$scale
+pca_model$rotation
+
+ggbiplot(pca_model,ellipse=TRUE, groups =data$Channel, obs.scale = 1, var.scale = 1)
+```
+
+```{r}
+ggbiplot(pca_model, ellipse=TRUE, obs.scale = 1, var.scale = 1, var.axes = FALSE, groups = data$Channel)
+```
+
+Scree plot
+```{r}
+#Proportion of variance
+prop_var <- ((pca_model$sdev)^2)/sum((pca_model$sdev)^2)
+plot(prop_var, xlab = "Principal COmponent", ylab="Proportion of Variance Explained", type="b")
+
+```
