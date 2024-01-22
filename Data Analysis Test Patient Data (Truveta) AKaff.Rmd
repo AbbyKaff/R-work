@@ -1,0 +1,157 @@
+---
+title: "Truveta Data Analysis Test"
+author: "Abigail Kaff"
+date: "2024-01-21"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(devtools)
+install_github("vqv/ggbiplot")
+library(ggbiplot)
+library(dplyr)
+```
+
+We are studying a rare new disease. This disease has common symptoms, but we are concerned this disease is associated with a high mortality risk. We want to understand the ramifications of this disease and what if any differences there are in morbidity between patients with and without this disease. 
+
+Read in the data
+```{r}
+data <- read.csv("C:/Users/akaff/Downloads/patient_rare_disease.csv")
+
+head(data)
+
+# Check for missing values
+missing_values <- colSums(is.na(data))
+cat("Missing Values:\n")
+print(missing_values)
+```
+
+No missing values, we are good to proceed with our analysis of the data set.
+
+Understand the Variables in the Data set
+```{r}
+# Explore variable distributions
+library(gtsummary)
+data %>% 
+  select(-c(1, 2)) %>%
+  tbl_summary(
+    statistic = list(all_continuous() ~ "{mean} ({sd})", 
+                     all_categorical() ~ "{n} / {N} ({p}%)"),
+    digits = all_continuous() ~ 2) %>% 
+  modify_caption("Patient Characteristics (N = {N})") %>%
+  as_gt()
+
+
+```
+
+
+```{r}
+# Formulate analysis question
+analysis_question <- "Is there a significant difference in mortality rates between patients with and without the rare disease?"
+cat("Analysis Question:\n", analysis_question, "\n")
+
+```
+```{r}
+# Comparative analyses
+comparison_results <- with(data, t.test(time ~ rare_disease))
+
+cat("Comparative Analysis Results:\n")
+print(comparison_results)
+
+```
+
+
+
+Visualize the data
+```{r}
+# Create visualizations
+par(mfrow=c(2,2))
+
+# Age distribution
+# Create numerical buckets for age
+unique(data$age)
+data <- data %>%
+  mutate(age_grouped = case_when(age == "75+" ~ 5,
+                                 age == "<18" ~ 1,
+                                 age == "18-49" ~ 2,
+                                 age == "50-64" ~ 3,
+                                 age== "65-74" ~ 4))
+
+hist(subset(data$age_grouped,data$rare_disease == 1), main="Age Distribution of Rare Disease", xlab="Age")
+```
+
+<br>
+Age distribution plot is interesting because the largest count of of patients with the rare disease fall into bucket #2 (18-49) however we do have to consider the distribution size of the each bucket with bucket #2 having the largest range of ages and patients. 
+
+
+```{r}
+# Survival curve
+library(survival)
+survival_curve <- survfit(Surv(time, died) ~ rare_disease, data=data)
+plot(survival_curve, main="Survival Curve by Rare Disease",
+     xlab="Time (Days)", ylab="Survival Probability", col=c("blue", "red"))
+```
+<br>
+The survival analysis helps us understand the probability of survival of someone with a rare disease being hospitalized vs all patients. There is a large drop in survival around the 40 day mark for those with the rare disease. 
+
+
+```{r}
+# Stacked barplot for mortality rates by rare disease
+library(ggplot2)
+
+ggplot(data, aes(x = rare_disease, fill = factor(died))) +
+  geom_bar(position = "stack", stat = "count") +
+  labs(title = "Stacked Barplot of Mortality Rates by Rare Disease",
+       x = "Rare Disease",
+       y = "Count",
+       fill = "Mortality") +
+  scale_fill_manual(values = c("lightblue", "lightcoral"), name = "Mortality") +
+  theme_minimal()
+```
+<br>
+This gives us a good understanding of how small the population of rare disease is compared to the data set, let's take another look subsetting the data to just look at the rare disease mortality rates.
+
+```{r}
+# Additional plot focusing on rare disease and death
+ggplot(data[data$rare_disease == 1, ], aes(x = factor(died))) +
+  geom_bar(fill = "lightgreen", stat = "count") +
+  labs(title = "Mortality Rates for Patients with Rare Disease",
+       x = "Mortality",
+       y = "Count") +
+  theme_minimal()
+```
+<br>
+Here we can see that the mortality rate for those with the rare disease are very high compared to those who survived. 
+<br><br>
+Let's run some statistical tests to see how significant mortality is on the data.
+
+```{r}
+# Statistical test
+chi_square_test <- chisq.test(table(data$rare_disease, data$died))
+cat("Chi-square Test Results:\n")
+print(chi_square_test)
+
+```
+
+<br>Results show that mortality with rare disease is likely to happen more than 50% of the time. 
+
+```{r}
+# Interpretation and implications
+interpretation <- "Given the analysis of the chi-squared test suggests a significant difference in mortality rates between patients with and without the rare disease."
+implications <- "This finding highlights the potential impact of the rare disease on patient outcomes."
+cat("Interpretation:\n", interpretation, "\n\nImplications:\n", implications, "\n")
+
+```
+
+
+```{r}
+# Acknowledge limitations
+limitations <- "Limitations include the retrospective nature of the data and potential confounders not accounted for in the analysis."
+cat("Limitations:\n", limitations, "\n")
+
+```
